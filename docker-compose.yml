@@ -1,0 +1,18 @@
+version: '3'
+services:
+  service:
+    build: .
+    ports:
+      - "5000:5000"
+
+  oracledb:
+    image: wnameless/oracle-xe-11g-r2
+    ports:
+      - 49161:1521
+    volumes:
+      - .:/duo
+    environment:
+      NODE_ORACLEDB_USER: root
+      NODE_ORACLEDB_PASSWORD: secret
+      MYSQL_DATABASE: my_database_name
+      NODE_ORACLEDB_CONNECTIONSTRING: localhost/orclpdb1
