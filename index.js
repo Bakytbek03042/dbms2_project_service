@@ -1,77 +1,31 @@
-const oracledb = require("oracledb");
+const express = require("express");
+const cors = require("cors");
+const config = require("config");
+const database = require("./services/database");
+const { dropFilterTable } = require("./services/filter.database");
 
-async function run() {
-  let connection;
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+app.use("/api", require("./routes"));
+
+const PORT = config.get("PORT") || 5050;
+app.listen(PORT, () => console.log(`Server started at port ${PORT}...`));
+
+const startDatabaseInitialization = async () => {
+  console.log("Initializing database module");
 
   try {
-    connection = await oracledb.getConnection({
-      user: "demonode",
-      password: "XXXX",
-      connectionString: "localhost/xepdb1",
+    await database.initialize().then(async () => {
+      console.log(`Database initialized | ${new Date()}`);
     });
+  } catch (e) {
+    console.log(e);
 
-    console.log("Successfully connected to Oracle Database");
-
-    // Create a table
-
-    await connection.execute(`begin
-                                execute immediate 'drop table todoitem';
-                                exception when others then if sqlcode <> -942 then raise; end if;
-                              end;`);
-
-    await connection.execute(`create table todoitem (
-                                id number generated always as identity,
-                                description varchar2(4000),
-                                creation_ts timestamp with time zone default current_timestamp,
-                                done number(1,0),
-                                primary key (id))`);
-
-    // Insert some data
-
-    const sql = `insert into todoitem (description, done) values(:1, :2)`;
-
-    const rows = [
-      ["Task 1", 0],
-      ["Task 2", 0],
-      ["Task 3", 1],
-      ["Task 4", 0],
-      ["Task 5", 1],
-    ];
-
-    let result = await connection.executeMany(sql, rows);
-
-    console.log(result.rowsAffected, "Rows Inserted");
-
-    connection.commit();
-
-    // Now query the rows back
-
-    result = await connection.execute(
-      `select description, done from todoitem`,
-      [],
-      { resultSet: true, outFormat: oracledb.OUT_FORMAT_OBJECT }
-    );
-
-    const rs = result.resultSet;
-    let row;
-
-    while ((row = await rs.getRow())) {
-      if (row.DONE) console.log(row.DESCRIPTION, "is done");
-      else console.log(row.DESCRIPTION, "is NOT done");
-    }
-
-    await rs.close();
-  } catch (err) {
-    console.error(err);
-  } finally {
-    if (connection) {
-      try {
-        await connection.close();
-      } catch (err) {
-        console.error(err);
-      }
-    }
+    process.exit(1);
   }
-}
+};
+startDatabaseInitialization();
 
-run();
+require("./telegram");
